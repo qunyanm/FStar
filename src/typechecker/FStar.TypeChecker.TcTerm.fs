@@ -33,11 +33,14 @@ open FStar.Const
 open FStar.Dyn
 open FStar.TypeChecker.Rel
 open FStar.TypeChecker.Common
+open FStar.TypeChecker.PatternInference
+
 
 module S  = FStar.Syntax.Syntax
 module SS = FStar.Syntax.Subst
 module N  = FStar.TypeChecker.Normalize
 module TcUtil = FStar.TypeChecker.Util
+module PI = FStar.TypeChecker.PatternInference
 module BU = FStar.Util
 module U  = FStar.Syntax.Util
 module PP = FStar.Syntax.Print
@@ -506,6 +509,7 @@ and tc_maybe_toplevel_term env (e:term) : term                  (* type-checked 
   | Tm_meta(e, Meta_pattern(names, pats)) ->
     let t, u = U.type_u () in
     let e, c, g = tc_check_tot_or_gtot_term env e t in
+    let pats = match pats with [] -> let p = PI.infer_pattern env names e in p | _ -> pats in
     //NS: PATTERN INFERENCE
     //if `pats` is empty (that means the user did not annotate a pattern).
     //In that case try to infer a pattern by

@@ -110,7 +110,7 @@ let mk_Apply e (vars:fvs) =
     vars |> List.fold_left (fun out var ->
             match fv_sort var with
             | Fuel_sort -> mk_ApplyTF out (mkFreeV var)
-            | s -> assert (s=Term_sort); mk_ApplyTT out (mkFreeV var)) e
+            | s -> (* assert (s=Term_sort);*) mk_ApplyTT out (mkFreeV var)) e
 let mk_Apply_args e args = args |> List.fold_left mk_ApplyTT e
 let raise_arity_mismatch head arity n_args rng =
     Errors.raise_error (Errors.Fatal_SMTEncodingArityMismatch,
@@ -202,7 +202,8 @@ let check_pattern_vars env vars pats =
         | Some (x,_) ->
         let pos = List.fold_left (fun out t -> Range.union_ranges out t.pos) hd.pos tl in
         Errors.log_issue pos (Errors.Warning_SMTPatternIllFormed,
-                              BU.format1 "SMT pattern misses at least one bound variable: %s"
+                              BU.format2 "SMT pattern (%s) misses at least one bound variable: %s"
+                                         (pats |> List.map Print.term_to_string |> String.concat "; ")
                                          (Print.bv_to_string x))
 
 (* </Utilities> *)
@@ -1182,7 +1183,9 @@ and encode_smt_patterns (pats_l:list<(list<S.arg>)>) env : list<(list<term>)> * 
 
 and encode_formula (phi:typ) (env:env_t) : (term * decls_t)  = (* expects phi to be normalized; the existential variables are all labels *)
     let debug phi =
-       if Env.debug env.tcenv <| Options.Other "SMTEncoding"
+       let ff = false in
+       if ff
+       //if Env.debug env.tcenv <| Options.Other "SMTEncoding"
        then BU.print2 "Formula (%s)  %s\n"
                      (Print.tag_of_term phi)
                      (Print.term_to_string phi) in
