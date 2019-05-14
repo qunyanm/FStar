@@ -1386,10 +1386,10 @@ and p_typ' ps pb e = match e.tm with
       let term_doc = p_noSeqTermAndComment ps pb e1 in
       //VD: We could dispense with this pattern matching if we removed trailing whitespace after the fact
       (match trigger with
-       | [] ->
+       | Some [] ->
          prefix2
           (soft_surround 2 0 (p_quantifier e ^^ space) binders_doc dot) term_doc
-       | pats ->
+       | _ ->
          prefix2 (group (prefix2
            (soft_surround 2 0 (p_quantifier e ^^ space) binders_doc dot)
             (p_trigger trigger))) term_doc)
@@ -1456,8 +1456,9 @@ and p_quantifier e = match e.tm with
     | _ -> failwith "Imposible : p_quantifier called on a non-quantifier term"
 
 and p_trigger = function
-    | [] -> empty
-    | pats ->
+    | None -> group (lbrace ^^ colon ^^ str "nopattern" ^^ rbrace)
+    | Some [] -> empty
+    | Some pats ->
         group (lbrace ^^ colon ^^ str "pattern" ^/^ jump 2 0 (p_disjunctivePats pats) ^^ rbrace)
 
 and p_disjunctivePats pats =

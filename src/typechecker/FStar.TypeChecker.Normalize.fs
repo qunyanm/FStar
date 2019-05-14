@@ -467,10 +467,14 @@ and rebuild_closure cfg env stack t =
       let m =
           match m with
           | Meta_pattern (names, args) ->
-            Meta_pattern (names |> List.map (non_tail_inline_closure_env cfg env_m),
-                          args |> List.map (fun args ->
+            let args = match args with
+                | None -> None
+                | Some args -> 
+                  Some (args |> List.map (fun args ->
                                             args |> List.map (fun (a, q) ->
                                             non_tail_inline_closure_env cfg env_m a, q)))
+            in
+            Meta_pattern (names |> List.map (non_tail_inline_closure_env cfg env_m), args)
 
           | Meta_monadic(m, tbody) ->
             Meta_monadic(m, non_tail_inline_closure_env cfg env_m tbody)
@@ -833,6 +837,7 @@ let rec maybe_weakly_reduced tm :  bool =
         maybe_weakly_reduced t
         || (match m with
            | Meta_pattern (_, args) ->
+             let args = match args with | None -> [] | Some args -> args in
              BU.for_some (BU.for_some (fun (a, _) -> maybe_weakly_reduced a)) args
 
            | Meta_monadic_lift(_, _, t')
@@ -1744,7 +1749,10 @@ and reify_lift cfg e msrc mtgt t : term =
 
 and norm_pattern_args cfg env args =
     (* Drops stack *)
-    args |> List.map (List.map (fun (a, imp) -> norm cfg env [] a, imp))
+    match args with 
+    | None -> None 
+    | Some args ->
+      Some (args |> List.map (List.map (fun (a, imp) -> norm cfg env [] a, imp)))
 
 and norm_comp : cfg -> env -> comp -> comp =
     fun cfg env comp ->
@@ -2725,7 +2733,9 @@ and elim_delayed_subst_comp (c:comp) : comp =
       mk (Comp ct)
 
 and elim_delayed_subst_meta = function
-  | Meta_pattern (names, args) -> Meta_pattern(List.map elim_delayed_subst_term names, List.map elim_delayed_subst_args args)
+  | Meta_pattern (names, args) ->
+    let args = match args with | None -> None | Some args ->  Some (List.map elim_delayed_subst_args args) in
+    Meta_pattern(List.map elim_delayed_subst_term names, args)
   | Meta_monadic(m, t) -> Meta_monadic(m, elim_delayed_subst_term t)
   | Meta_monadic_lift(m1, m2, t) -> Meta_monadic_lift(m1, m2, elim_delayed_subst_term t)
   | m -> m

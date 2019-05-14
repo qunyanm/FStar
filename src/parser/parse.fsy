@@ -96,6 +96,7 @@ let logic_qualifier_deprecation_warning =
 %token LARROW
 %token LBRACE
 %token LBRACE_COLON_PATTERN
+%token NO_PATTERN
 %token LBRACK
 %token LBRACK_AT
 %token LBRACK_BAR
@@ -1910,10 +1911,12 @@ in
 
 trigger:
   
-    {      ( [] )}
+    {      ( Some [] )}
+| LBRACE NO_PATTERN RBRACE
+    {      ( None )}
 | LBRACE_COLON_PATTERN disjunctivePats RBRACE
     {let (_1, pats, _3) = ((), $2, ()) in
-                                                     ( pats )}
+                                                     ( Some pats )}
 
 disjunctivePats:
   separated_nonempty_list_DISJUNCTION_conjunctivePat_

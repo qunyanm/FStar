@@ -27,4 +27,4 @@ module S  = FStar.Syntax.Syntax
 module Util = FStar.Util
 
 val infer_pattern: env -> list<S.term> -> S.term -> list<S.args>
-val remove_invalid_pattern: list<S.term> -> list<S.args> -> list<S.args>
+val remove_invalid_pattern: list<S.term> -> option<list<S.args>> -> option<list<S.args>>

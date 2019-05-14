@@ -1356,7 +1356,7 @@ let is_free_in (bv:bv) (t:term) : bool =
 (**************************************************************************************)
 (* Destructing a type as a formula *)
 (**************************************************************************************)
-type qpats = list<args>
+type qpats = option<list<args>>
 type connective =
     | QAll of binders * qpats * typ
     | QEx of binders * qpats * typ
@@ -1398,7 +1398,7 @@ let destruct_typ_as_formula f : option<connective> =
         let t = compress t in
         match t.n with
             | Tm_meta(t, Meta_pattern (_, pats)) -> pats, compress t
-            | _ -> [], t in
+            | _ -> (Some []), t in
 
     let destruct_q_conn t =
         let is_q (fa:bool) (fv:fv) : bool =
@@ -1514,15 +1514,20 @@ let destruct_typ_as_formula f : option<connective> =
                 end
         | _ -> None)
     and maybe_collect f =
+        let combine pats pats' = match pats, pats' with
+            | None, None -> None
+            | None, _ | _, None -> failwith "patter and nopattern doesn't match"
+            | Some pats, Some pats' -> Some <| pats@pats'
+        in
         match f with
         | Some (QAll (bs, pats, phi)) ->
             begin match destruct_sq_forall phi with
-            | Some (QAll (bs', pats', psi)) -> Some <| QAll(bs@bs', pats@pats', psi)
+            | Some (QAll (bs', pats', psi)) -> Some <| QAll(bs@bs', combine pats pats', psi)
             | _ -> f
             end
         | Some (QEx (bs, pats, phi)) ->
             begin match destruct_sq_exists phi with
-            | Some (QEx (bs', pats', psi)) -> Some <| QEx(bs@bs', pats@pats', psi)
+            | Some (QEx (bs', pats', psi)) -> Some <| QEx(bs@bs', combine pats pats', psi)
             | _ -> f
             end
         | _ -> f
@@ -1952,7 +1957,10 @@ let rec unbound_variables tm :  list<bv> =
         unbound_variables t
         @ (match m with
            | Meta_pattern (_, args) ->
-             List.collect (List.collect (fun (a, _) -> unbound_variables a)) args
+             begin match args with 
+             | None -> []
+             | Some args -> List.collect (List.collect (fun (a, _) -> unbound_variables a)) args
+             end
 
            | Meta_monadic_lift(_, _, t')
            | Meta_monadic(_, t') ->
@@ -2090,7 +2098,7 @@ let smt_lemma_as_forall (t:term) (universe_of_binders: binders -> list<universe>
     in
     (* Postcondition is thunked, c.f. #57 *)
     let post = unthunk_lemma_post post in
-    let body = mk (Tm_meta (mk_imp pre post, Meta_pattern (binders_to_names binders, patterns))) None t.pos in
+    let body = mk (Tm_meta (mk_imp pre post, Meta_pattern (binders_to_names binders, Some patterns))) None t.pos in
     let quant =
       List.fold_right2
         (fun b u out -> mk_forall u (fst b) out)

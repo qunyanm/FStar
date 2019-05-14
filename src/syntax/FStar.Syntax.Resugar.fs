@@ -507,8 +507,15 @@ let rec resugar_term' (env: DsEnv.env) (t : S.term) : A.term =
           (* desugared from QForall(binders * patterns * body) to Tm_app(forall, Tm_abs(binders, Tm_meta(body, meta_pattern(list<args>)*)
           let rec uncurry xs pat (t:A.term) = match t.tm with
             | A.QExists(x, (_, p) , body)
-            | A.QForall(x, (_, p), body)
-              -> uncurry (x@xs) (p@pat) body
+            | A.QForall(x, (_, p), body) ->
+              let pats = begin match pat, p with
+                | None, None -> None
+                | None, _ 
+                | _, None -> failwith "mismatch pattern and nonpattern"
+                | Some pat, Some p -> Some (p@pat)
+                end
+              in
+              uncurry (x@xs) pats body
             | _ -> xs, pat, t
           in
           let resugar body = match (SS.compress body).n with
@@ -521,15 +528,20 @@ let rec resugar_term' (env: DsEnv.env) (t : S.term) : A.term =
                     let body = resugar_term' env e in
                     let pats, body = match m with
                       | Meta_pattern (_, pats) ->
-                        List.map (fun es -> es |> List.map (fun (e, _) -> resugar_term' env e)) pats,
-                        body
+                        let pats = begin match pats with 
+                          | None -> None 
+                          | Some pats -> 
+                            Some (List.map (fun es -> es |> List.map (fun (e, _) -> resugar_term' env e)) pats)
+                          end
+                        in
+                        pats, body
                       | Meta_labeled (s, r, p) ->
                         // this case can occur in typechecker when a failure is wrapped in meta_labeled
-                        [], mk (A.Labeled (body, s, p))
+                        (Some []), mk (A.Labeled (body, s, p))
                       | _ -> failwith "wrong pattern format for QForall/QExists"
                     in
                     pats, body
-                  | _ -> [], resugar_term' env body
+                  | _ -> Some [], resugar_term' env body
                 in
                 let xs, pats, body = uncurry xs pats body in
                 let xs = xs |> List.rev in
@@ -540,8 +552,8 @@ let rec resugar_term' (env: DsEnv.env) (t : S.term) : A.term =
             | _ ->
             (*forall added by typechecker.normalize doesn't not have Tm_abs as body*)
             (*TODO:  should we resugar them back as forall/exists or just as the term of the body *)
-            if op = "forall" then mk (A.QForall([], ([], []), resugar_term' env body))
-            else mk (A.QExists([], ([], []), resugar_term' env body))
+            if op = "forall" then mk (A.QForall([],([], (Some [])), resugar_term' env body))
+            else mk (A.QExists([], ([], (Some [])), resugar_term' env body))
           in
           (* only the last arg is from original AST terms, others are added by typechecker *)
           (* TODO: we need a place to store the information in the args added by the typechecker *)
@@ -701,11 +713,14 @@ let rec resugar_term' (env: DsEnv.env) (t : S.term) : A.term =
       in
       begin match m with
       | Meta_pattern (_, pats) ->
-        // This case is possible in TypeChecker when creating "haseq" for Sig_inductive_typ whose Sig_datacon has no binders.
-        let pats = List.flatten pats |> List.map (fun (x, _) -> resugar_term' env x) in
-        // Is it correct to resugar it to Attributes.
-        mk (A.Attributes pats)
-
+        begin match pats with 
+        | None -> failwith "this case shouldn't happen?"
+        | Some pats ->
+          // This case is possible in TypeChecker when creating "haseq" for Sig_inductive_typ whose Sig_datacon has no binders.
+          let pats = List.flatten pats |> List.map (fun (x, _) -> resugar_term' env x) in
+          // Is it correct to resugar it to Attributes.
+          mk (A.Attributes pats)
+        end
       | Meta_labeled _ ->
           (* Ignore the label, we don't want to print it *)
           resugar_term' env e

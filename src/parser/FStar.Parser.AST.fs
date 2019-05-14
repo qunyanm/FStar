@@ -84,7 +84,7 @@ type term' =
 
 and term = {tm:term'; range:range; level:level}
 
-and patterns = list<ident> * list<list<term>>
+and patterns = list<ident> * option<list<list<term>>>
 
 and calc_step =
   | CalcStep of term * term * term (* Relation, justification and next expression *)
@@ -623,11 +623,13 @@ let rec term_to_string (x:term) = match x.tm with
                      | Inr t -> term_to_string t) |>
     String.concat " & "
   | QForall(bs, (_, pats), t) ->
+    let pats = match pats with | None -> [] | Some pats -> pats in
     Util.format3 "forall %s.{:pattern %s} %s"
       (to_string_l " " binder_to_string bs)
       (to_string_l " \/ " (to_string_l "; " term_to_string) pats)
       (t|> term_to_string)
   | QExists(bs, (_, pats), t) ->
+    let pats = match pats with | None -> [] | Some pats -> pats in
     Util.format3 "exists %s.{:pattern %s} %s"
       (to_string_l " " binder_to_string bs)
       (to_string_l " \/ " (to_string_l "; " term_to_string) pats)

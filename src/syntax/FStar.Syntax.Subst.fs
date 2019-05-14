@@ -439,7 +439,11 @@ let rec push_subst s t =
         mk (Tm_let((is_rec, lbs), body))
 
     | Tm_meta(t0, Meta_pattern (bs, ps)) ->
-        mk (Tm_meta(subst' s t0, Meta_pattern (List.map (subst' s) bs, ps |> List.map (subst_args' s))))
+        let ps = match ps with 
+          | None -> None
+          | Some ps -> Some (ps |> List.map (subst_args' s))
+        in
+        mk (Tm_meta(subst' s t0, Meta_pattern (List.map (subst' s) bs, ps)))
 
     | Tm_meta(t0, Meta_monadic (m, t)) ->
         mk (Tm_meta(subst' s t0, Meta_monadic(m, subst' s t)))

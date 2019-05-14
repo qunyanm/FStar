@@ -154,7 +154,10 @@ let rec free_names_and_uvs' tm use_cache : free_vars_and_fvars =
         let u1 = free_names_and_uvars t use_cache in
         begin match m with
         | Meta_pattern (_, args) ->
-            List.fold_right (fun a acc -> free_names_and_uvars_args a acc use_cache) args u1
+            begin match args with 
+            | None -> u1
+            | Some args -> List.fold_right (fun a acc -> free_names_and_uvars_args a acc use_cache) args u1
+            end
 
         | Meta_monadic(_, t') ->
           union u1 (free_names_and_uvars t' use_cache)

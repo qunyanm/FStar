@@ -93,7 +93,8 @@ let rec inst (s:term -> fv -> term) t =
         mk (Tm_let(lbs, inst s t))
 
       | Tm_meta(t, Meta_pattern (bvs, args)) ->
-        mk (Tm_meta(inst s t, Meta_pattern (bvs, args |> List.map (inst_args s))))
+        let args = match args with | None -> None | Some args -> Some (args |> List.map (inst_args s)) in
+        mk (Tm_meta(inst s t, Meta_pattern (bvs, args)))
 
       | Tm_meta(t, Meta_monadic (m, t')) ->
         mk (Tm_meta(inst s t, Meta_monadic(m, inst s t')))

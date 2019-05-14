@@ -178,10 +178,14 @@ let infer_pattern env (names: list<S.term>) (t:S.term) : list<S.args> =
       BU.print1 "Found patterns: %s\n" (pats |> List.map Print.term_to_string |> String.concat "; ");
     List.fold_left (fun l t -> l@[[S.as_arg t]]) [] pats
 
-let remove_invalid_pattern (names: list<S.term>) (pats: list<S.args>) : list<S.args> =
+let remove_invalid_pattern (names: list<S.term>) (pats: option<list<S.args>>) : option<list<S.args>> =
     match names with
     | [] -> pats
     | _ ->
       let bvs = terms_to_bvs names in
-      let pats = List.fold_left(fun l p -> let p = List.choose (fun (t,_) -> filter_trigger bvs t) p in l@p) [] pats in
-      List.fold_left (fun l t -> l@[[S.as_arg t]]) [] pats
+      begin match pats with
+      | None -> None
+      | Some pats -> 
+        let pats = List.fold_left(fun l p -> let p = List.choose (fun (t,_) -> filter_trigger bvs t) p in l@p) [] pats in
+        Some (List.fold_left (fun l t -> l@[[S.as_arg t]]) [] pats)
+      end

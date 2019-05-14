@@ -293,8 +293,14 @@ and term_to_string x =
         end
 
       | Tm_meta(t, Meta_pattern (_, ps)) ->
-        let pats = ps |> List.map (fun args -> args |> List.map (fun (t, _) -> term_to_string t) |> String.concat "; ") |> String.concat "\/" in
-        U.format2 "{:pattern %s} %s" pats (term_to_string t)
+        let pats = match ps with
+          | None ->  "{:nopattern}"
+          | Some [] -> ""
+          | Some ps -> 
+            let pats = ps |> List.map (fun args -> args |> List.map (fun (t, _) -> term_to_string t) |> String.concat "; ") |> String.concat "\/" in
+            U.format1 "{:pattern %s}" pats
+        in
+        U.format2 "%s %s" pats (term_to_string t)
 
       | Tm_meta(t, Meta_monadic (m, t')) -> U.format4 ("(Monadic-%s{%s %s} %s)") (tag_of_term t) (sli m) (term_to_string t') (term_to_string t)
 
@@ -559,8 +565,12 @@ and formula_to_string phi = term_to_string phi
 
 and metadata_to_string = function
     | Meta_pattern (_, ps) ->
-        let pats = ps |> List.map (fun args -> args |> List.map (fun (t, _) -> term_to_string t) |> String.concat "; ") |> String.concat "\/" in
-        U.format1 "{Meta_pattern %s}" pats
+        begin match ps with 
+        | None -> "{:nopattern}"
+        | Some ps ->
+            let pats = ps |> List.map (fun args -> args |> List.map (fun (t, _) -> term_to_string t) |> String.concat "; ") |> String.concat "\/" in
+            U.format1 "{Meta_pattern %s}" pats
+        end
 
     | Meta_named lid ->
         U.format1 "{Meta_named %s}" (sli lid)

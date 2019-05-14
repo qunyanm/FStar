@@ -509,13 +509,31 @@ and tc_maybe_toplevel_term env (e:term) : term                  (* type-checked 
   | Tm_meta(e, Meta_pattern(names, pats)) ->
     let t, u = U.type_u () in
     let e, c, g = tc_check_tot_or_gtot_term env e t in
-    let pats = match pats with [] -> let p = PI.infer_pattern env names e in p | _ -> pats in
-    //NS: PATTERN INFERENCE
-    //if `pats` is empty (that means the user did not annotate a pattern).
-    //In that case try to infer a pattern by
-    //analyzing `e` for the smallest terms that contain all the variables
-    //in `names`.
-    //If not pattern can be inferred, raise a warning
+    let pats = match pats with
+      | None -> pats
+      | Some p -> match p with 
+        | [] -> 
+          //if `pats` is empty (that means the user did not annotate a pattern).
+          //In that case try to infer a pattern by
+          //analyzing `e` for the smallest terms that contain all the variables
+          //in `names`.
+          //If not pattern can be inferred, raise a warning
+          if Options.auto_patterns () then 
+            begin match (PI.infer_pattern env names e) with
+            | [] -> 
+              Errors.log_issue e.pos
+               (Errors.Warning_NoPatternInferred,
+               (BU.format3 "no pattern can be inferred : %s (%s) with names: (%s)\n" 
+                   (Print.term_to_string e) 
+                   (Print.tag_of_term (SS.compress e))
+                   (names |> List.map Print.term_to_string |> String.concat ", ")));
+              Some []
+                                         
+            | p -> Some p
+            end
+          else pats 
+        | _ -> pats
+      in
     let pats, g' =
         let env, _ = Env.clear_expected_typ env in
         tc_smt_pats env pats in
@@ -2810,7 +2828,7 @@ and tc_binders env bs =
           b::bs, env', Env.conj_guard g (Env.close_guard_univs [u] [b] g'), u::us in
     aux env bs
 
-and tc_smt_pats en pats =
+and tc_smt_pats en pats : option<list<args>>*guard_t =
     let tc_args en args : Syntax.args * guard_t =
        //an optimization for checking arguments in cases where we know that their types match the types of the corresponding formal parameters
        //notably, this is used when checking the application  (?u x1 ... xn). NS: which we do not currently do!
@@ -2819,9 +2837,15 @@ and tc_smt_pats en pats =
                              let t, _, g' = tc_term en t in
                              (t, imp)::args, Env.conj_guard g g')
           args ([], Env.trivial_guard) in
-    List.fold_right (fun p (pats, g) ->
-      let args, g' = tc_args en p in
-      (args::pats, Env.conj_guard g g')) pats ([], Env.trivial_guard)
+    begin match pats with
+      | None -> (None, Env.trivial_guard)
+      | Some pats -> 
+          let (pats, g) = (List.fold_right (fun p (pats, g) ->
+              let args, g' = tc_args en p in
+              (args::pats, Env.conj_guard g g')) pats ([], Env.trivial_guard))
+          in 
+          (Some pats, g)
+    end
 
 and tc_tot_or_gtot_term env e : term
                                 * lcomp

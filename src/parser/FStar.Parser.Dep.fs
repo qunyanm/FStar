@@ -776,6 +776,7 @@ let collect_one
             collect_term t
         | QForall (binders, (_, ts), t)
         | QExists (binders, (_, ts), t) ->
+            let ts = match ts with | None -> [] | Some ts -> ts in
             collect_binders binders;
             List.iter (List.iter collect_term) ts;
             collect_term t

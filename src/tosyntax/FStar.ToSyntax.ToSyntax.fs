@@ -1811,8 +1811,9 @@ and desugar_formula env (f:term) : S.term =
     let tk = desugar_binder env ({b with blevel=Formula}) in
     let with_pats env (names, pats) body =
       match names, pats with
-      | [], [] -> body
-      | [], _::_ ->
+      | [], None
+      | [], Some [] -> body
+      | [], Some (_::_) ->
         //violates an internal invariant
         failwith "Impossible: Annotated pattern without binders in scope"
       | _ ->
@@ -1821,10 +1822,13 @@ and desugar_formula env (f:term) : S.term =
           (fun i ->
           { fail_or2 (try_lookup_id env) i with pos=i.idRange })
         in
-        let pats =
-          pats |> List.map
-          (fun es -> es |> List.map
-                  (fun e -> arg_withimp_t Nothing <| desugar_term env e))
+        let pats = match pats with 
+          | None -> None
+          | Some p ->
+            let pats = p |> List.map
+                       (fun es -> es |> List.map
+                          (fun e -> arg_withimp_t Nothing <| desugar_term env e)) in
+            Some pats
         in
         mk (Tm_meta (body, Meta_pattern (names, pats)))
     in
@@ -1848,7 +1852,7 @@ and desugar_formula env (f:term) : S.term =
     | b::(b'::_rest) ->
       let rest = b'::_rest in
       let body = mk_term (q(rest, pats, body)) (Range.union_ranges b'.brange body.range) Formula in
-      mk_term (q([b], ([], []), body)) f.range Formula
+      mk_term (q([b], ([], Some []), body)) f.range Formula
     | _ -> failwith "impossible" in
 
   match (unparen f).tm with
