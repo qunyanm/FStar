@@ -67,8 +67,8 @@ type term' =
   | Project   of term * lid
   | Product   of list<binder> * term                 (* function space *)
   | Sum       of list<(either<binder,term>)> * term                 (* dependent tuple *)
-  | QForall   of list<binder> * patterns * term
-  | QExists   of list<binder> * patterns * term
+  | QForall   of list<binder> * option<ident> * patterns * term
+  | QExists   of list<binder> * option<ident> * patterns * term
   | Refine    of binder * term
   | NamedTyp  of ident * term
   | Paren     of term
@@ -622,14 +622,16 @@ let rec term_to_string (x:term) = match x.tm with
     List.map (function Inl b -> binder_to_string b
                      | Inr t -> term_to_string t) |>
     String.concat " & "
-  | QForall(bs, (_, pats), t) ->
-    Util.format3 "forall %s.{:pattern %s} %s"
+  | QForall(bs, attr, (_, pats), t) ->
+    Util.format4 "forall %s. %s {:pattern %s} %s"
       (to_string_l " " binder_to_string bs)
+      (match attr with | None -> "" | Some attr -> (string_of_ident attr))
       (to_string_l " \/ " (to_string_l "; " term_to_string) pats)
       (t|> term_to_string)
-  | QExists(bs, (_, pats), t) ->
-    Util.format3 "exists %s.{:pattern %s} %s"
+  | QExists(bs, attrs, (_, pats), t) ->
+    Util.format4 "exists %s. %s {:pattern %s} %s"
       (to_string_l " " binder_to_string bs)
+      (match attrs with | None -> "" | Some attr -> (string_of_ident attr))
       (to_string_l " \/ " (to_string_l "; " term_to_string) pats)
       (t|> term_to_string)
   | Refine(b, t) ->
