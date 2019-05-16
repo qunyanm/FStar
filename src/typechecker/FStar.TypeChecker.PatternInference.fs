@@ -56,52 +56,44 @@ let rec find_trigger env (names:set<bv>) (t:S.term) : (bool * list<S.term>) =
       - If there are no such t, automatic generation fails.
       - There may be more than one t.  In this case, F* would generate a disjunction of the 
         terms {:pattern t1 \/ ... \/ tk}. *)
-    let debug = false in
-    if debug then 
-      BU.print2 "find trigger for : %s (%s)\n" (Print.term_to_string t) (Print.tag_of_term (SS.compress t));
-    
+
     match (SS.compress t).n with
-    | Tm_bvar x ->
+    // these cases do not kill a trigger (can be part of a trigger), 
+    // however they can't be  a trigger by themselves.
+    | Tm_bvar _ | Tm_uvar _ | Tm_name _ | Tm_constant _ 
+    | Tm_type _ | Tm_lazy _ | Tm_unknown ->
       (false, [])
 
-    | Tm_name x ->
-      (false, [])
-
-    | Tm_fvar fv ->
-      (false, [])
-
-    | Tm_uinst(e, universes) ->
-      find_trigger env names e
-     
-    | Tm_constant c ->
-      (false, [])
-
-    | Tm_type u ->
+    // these cases kill a trigger (can't be part of a trigger), 
+    // they can't be a trigger by themselves, and we don't look inside them
+    // for triggers either
+    | Tm_abs _  | Tm_arrow _ | Tm_refine _ | Tm_match _
+    | Tm_let _  | Tm_quoted _-> 
       (true, [])
 
-    | Tm_abs(xs, body, _) -> //fun x1 .. xn -> body
-      (true, [])
+    | Tm_ascribed (t, _, _)
+    | Tm_uinst (t, _)
+    | Tm_meta (t, _) ->
+      find_trigger env names t
 
-    | Tm_arrow(xs, body) ->
-      (true, [])
-
-    | Tm_refine(x, phi) ->
-      (true, [])
+    | Tm_fvar _ ->
+      // it kills a trigger (can't be part of a trigger) if it has smt_theory_symbols
+      let trigger_killer = not (has_no_smt_theory_symbols env t) in
+      (trigger_killer, [])
 
     | Tm_app (e, args) ->
-      // make sure e doesn't have [@smt_theory_symbol]
       // compute trigger for each args
-      // if an arg has a trigger that mention all the bv, then its a trigger
-      // if there is no trigger from the args then
-      // if none of the args is a trigger killer, then Tm_app is a trigger
-      
-      //if (FStar.TypeChecker.Env.lookup_attrs_of_lid)
+      // if there are no triggers from the args that mentions all bvs,
+      // and none of the args and e is a trigger killer,
+      // then Tm_app is a trigger candidate
       begin
       match (SS.compress e).n with
       | Tm_fvar fv
       | Tm_uinst({n=Tm_fvar fv}, _)
         when (S.fv_eq_lid fv Const.forall_lid
           ||  S.fv_eq_lid fv Const.exists_lid) ->
+        // forall/exists can't be part of a trigger, they themselves can't
+        // be a trigger, and we don't look inside of them for triggers either
         (true, [])
 
       | _ ->
@@ -111,11 +103,10 @@ let rec find_trigger env (names:set<bv>) (t:S.term) : (bool * list<S.term>) =
                                       ((k || b), l@c))
                                   (trigger_killer, []) args in
         let c = c |> List.choose (fun t -> filter_trigger names t) in
-        let  c = 
-          match c with
+        let  c = match c with
           | [] -> 
-            if (not trigger_killer) && (has_no_smt_theory_symbols env e) then
-             // no suitable trigger found yet, add current term as a candidate.
+            if (not trigger_killer) then
+             // no suitable trigger found, add current term as a candidate.
              // Still keep the other candidates around in case we want to infer 
              // patterns with ';'
              c@[t]
@@ -124,39 +115,9 @@ let rec find_trigger env (names:set<bv>) (t:S.term) : (bool * list<S.term>) =
         in 
         (trigger_killer, c)
       end
-    | Tm_match(e, branches) ->
-      (true, [])
-
-    | Tm_ascribed _ -> // what is an ascribed
-      (true, [])
-
-    | Tm_let((is_rec, source_lbs), body) ->
-      (true, [])
-
-    | Tm_uvar (u, _) -> 
-      (false, [])
-
+    
     | Tm_delayed _ ->
       failwith "Tm_delayed is impossible after compress"
-
-    | Tm_meta(e, m) ->
-      (true, [])
-
-    | Tm_lazy i ->
-      (true, [])
-
-    | Tm_quoted (tm, qi) ->
-      (true, [])
-
-    | Tm_unknown -> 
-      (true, [])
-
-(* let check_no_smt_theory_symbols env t =
-  match (SS.compress t).n with
-  | Tm_fvar fv ->
-      if Env.fv_has_attr en fv Const.smt_theory_symbol_attr_lid then [t]
-      else []
-*)
 
 let terms_to_bvs names =
     match names with
@@ -165,17 +126,16 @@ let terms_to_bvs names =
         List.fold_left (fun out x -> BU.set_union out (Free.names x)) (Free.names hd) tl
 
 let infer_pattern env (names: list<S.term>) (t:S.term) : list<S.args> =
-    let debug = true in
-    if debug then 
-      BU.print3 "Infer pattern for : %s (%s) with names: (%s)\n" 
+    if Env.debug env <| Options.Other "PatternInference" 
+    then  BU.print3 "Infer pattern for : %s (%s) with names: (%s)\n" 
         (Print.term_to_string t) 
         (Print.tag_of_term (SS.compress t))
         (names |> List.map Print.term_to_string |> String.concat ", ");
     let bvs = terms_to_bvs names in
     let (_, p) = find_trigger env bvs t in
     let pats = p |> List.choose (fun t -> filter_trigger bvs t) in
-    if debug then
-      BU.print1 "Found patterns: %s\n" (pats |> List.map Print.term_to_string |> String.concat "; ");
+    if Env.debug env <| Options.Other "PatternInference" 
+    then BU.print1 "Found patterns: %s\n" (pats |> List.map Print.term_to_string |> String.concat "; ");
     List.fold_left (fun l t -> l@[[S.as_arg t]]) [] pats
 
 let remove_invalid_pattern (names: list<S.term>) (pats: list<S.args>) : list<S.args> =

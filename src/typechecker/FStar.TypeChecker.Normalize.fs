@@ -1403,6 +1403,9 @@ let rec norm : cfg -> env -> stack -> term -> term =
                       | Meta_pattern (attr, names, args) ->
                           let args = norm_pattern_args cfg env args in
                           let names =  names |> List.map (norm cfg env []) in
+                          // normalization might remove bv from args if the bv is
+                          // not referenced in args, thus cause args to become
+                          // invalid patterns
                           let args = PI.remove_invalid_pattern names args in
                           norm cfg env (Meta(env, Meta_pattern(attr, names, args), t.pos)::stack) head
                           //meta doesn't block reduction, but we need to put the label back
