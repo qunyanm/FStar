@@ -156,6 +156,7 @@ let () =
    ".(", DOT_LPAREN;
    ".[|", DOT_LBRACK_BAR;   
    "{:pattern", LBRACE_COLON_PATTERN;
+   "{:nopattern}", LBRACE_COLON_NOPATTERN_RBRACE;
    ":", COLON;
    "::", COLON_COLON;
    ":=", COLON_EQUALS;
