@@ -7,7 +7,7 @@ FSTAR_HOME=..
 # Makefile here is not.
 
 all:
-	+$(MAKE) FSTAR_HOME=$(FSTAR_HOME) -f Makefile.verify verify-core
+	+$(MAKE) FSTAR_HOME=$(FSTAR_HOME) -f Makefile.verify verify-core > myoutput
 
 extra:
 	+$(MAKE) FSTAR_HOME=$(FSTAR_HOME) -f Makefile.verify verify-extra

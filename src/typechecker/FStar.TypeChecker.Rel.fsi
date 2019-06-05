@@ -48,6 +48,7 @@ val solve_deferred_constraints: env -> guard_t -> guard_t
 val solve_some_deferred_constraints: env -> guard_t -> guard_t
 val discharge_guard_no_smt    : env -> guard_t -> guard_t
 val discharge_guard           : env -> guard_t -> guard_t
+val discharge_guard_with_msg  : option<(unit -> string)> -> env -> guard_t -> guard_t
 val force_trivial_guard       : env -> guard_t -> unit
 val resolve_implicits         : env -> guard_t -> guard_t
 val resolve_implicits_tac     : env -> guard_t -> guard_t
