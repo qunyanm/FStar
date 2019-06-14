@@ -612,6 +612,7 @@ let ask_and_report_errors env all_labels prefix query suffix =
                   (Some (Z3.mk_fresh_scope()))
                   k
                   (used_hint config)
+                  config.query_name
     in
 
     let check_all_configs configs =

@@ -25,7 +25,7 @@ let new_counter counters name =
 let rec add_counter counters name elapsed =
   match find_counter counters name with
     | Some ctr -> ctr.total_time := elapsed + !(ctr.total_time)
-    | None -> failwith ("counter for " ^ name ^ "not found")
+    | None -> failwith ("counter for " ^ name ^ " not found")
 
 let push_stack p =
   stack := p::!stack
@@ -38,7 +38,7 @@ let get_profiler l s new_level =
        have normalization time as 0ms, instead of missing normalization time since normalization is
        never called. *)
     let cts = BatHashtbl.create(10) in
-    FStar_Options.get_profile_phase() |> FStar_List.iter (fun l ->  new_counter cts l);
+    FStar_Options.get_profile_phase() |> FStar_List.iter (fun l ->  new_counter cts (FStar_String.lowercase l));
     let p = {plevel=l; pname=s; ptime = ref 0; counters=cts} in 
     push_stack p;
     Some (p.counters)
@@ -67,7 +67,7 @@ let print_profile p =
     let ctr = 
       match find_counter counters name with 
       | Some ctr -> ctr 
-      | _ ->  failwith ("counter for " ^ name ^ "not found") in
+      | _ ->  failwith ("counter for " ^ name ^ " not found") in
     Printf.sprintf "\t%s: %s ms " name (string_of_int !(ctr.total_time)) in
   let all_keys = BatHashtbl.to_list counters |> List.map fst in
   let output = List.fold_left
@@ -90,7 +90,7 @@ let profile' f name phasename new_level new_phase =
     if new_phase then add_counter counters (FStar_Options.profile_name phasename) ms;
     if new_level then pop_and_print_profiler name ms;
   | None -> 
-    Printf.printf "%s: %s: %sms\n" name (FStar_Options.profile_name phasename)(string_of_int ms)
+    Printf.printf "%s: %s: %s ms\n" name (FStar_Options.profile_name phasename)(string_of_int ms)
   in
   (r, elapsed)
 
